@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Heart Destroyer Game</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #000;
+            font-family: Arial, sans-serif;
+            touch-action: none;
+        }
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+        }
+        #player {
+            position: absolute;
+            bottom: 5%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80px;
+            height: 120px;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            z-index: 10;
+            transition: transform 0.3s ease-in-out;
+        }
+        .dancing {
+            animation: dance 1.5s infinite alternate ease-in-out;
+        }
+        /* Animation for player */
+        #player.dancing {
+            animation: playerDance 1.5s infinite alternate ease-in-out;
+        }
+        @keyframes playerDance {
+            0% {
+                transform: translateX(-50%) rotate(-5deg) translateY(0);
+            }
+            25% {
+                transform: translateX(-45%) rotate(0deg) translateY(-5px);
+            }
+            50% {
+                transform: translateX(-50%) rotate(5deg) translateY(0);
+            }
+            75% {
+                transform: translateX(-55%) rotate(0deg) translateY(-5px);
+            }
+            100% {
+                transform: translateX(-50%) rotate(-5deg) translateY(0);
+            }
+        }
+        /* Animation for parag */
+        #parag.dancing {
+            animation: paragDance 1.5s infinite alternate ease-in-out;
+        }
+        @keyframes paragDance {
+            0% {
+                transform: rotate(-5deg) translateY(0);
+            }
+            25% {
+                transform: rotate(0deg) translateY(-5px);
+            }
+            50% {
+                transform: rotate(5deg) translateY(0);
+            }
+            75% {
+                transform: rotate(0deg) translateY(-5px);
+            }
+            100% {
+                transform: rotate(-5deg) translateY(0);
+            }
+        }
+        .laser {
+            position: absolute;
+            width: 5px;
+            height: 20px;
+            background-color: #ff0000;
+            border-radius: 2.5px;
+            z-index: 5;
+        }
+        .heart {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            z-index: 5;
+            transform: rotate(0deg);
+        }
+        #parag {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100px;
+            height: 100px;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            z-index: 8;
+        }
+        #score-display {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-size: 20px;
+            z-index: 20;
+        }
+        #high-score-display {
+            position: absolute;
+            top: 40px;
+            left: 10px;
+            color: white;
+            font-size: 20px;
+            z-index: 20;
+        }
+        .eye-laser {
+            position: absolute;
+            background-color: rgba(255, 0, 0, 0.7);
+            z-index: 4;
+            height: 100vh;
+            width: 3px;
+            transform-origin: top;
+            display: none;
+        }
+        #game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 48px;
+            text-align: center;
+            display: none;
+            z-index: 30;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 20px;
+            border-radius: 10px;
+        }
+        #restart-btn {
+            padding: 10px 20px;
+            font-size: 20px;
+            margin-top: 20px;
+            cursor: pointer;
+            background-color: #ff0000;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+        #pause-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 20;
+            padding: 5px 10px;
+            font-size: 14px;
+            cursor: pointer;
+            background-color: rgba(255, 255, 255, 0.3);
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+        #pause-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 48px;
+            z-index: 15; /* Lower z-index so it doesn't block the pause button */
+            display: none;
+            cursor: pointer; /* Show a pointer cursor to indicate it's clickable */
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="score-display">💔 0</div>
+        <div id="high-score-display">💔 Record: 0</div>
+        <div id="parag"></div>
+        <div id="player"></div>
+        <div id="game-over">
+            <div>GAME OVER</div>
+            <div id="final-score">💔 0</div>
+            <button id="restart-btn">Play Again</button>
+        </div>
+        <button id="pause-btn">⏸️ Pause</button>
+        <div id="pause-overlay">DANCE BREAK</div>
+    </div>
+
+    <script>
+        // Audio element for knife.mp3
+        const bgMusic = new Audio('knife.mp3');
+        bgMusic.loop = true;
+
+        // Game state
+        const state = {
+            score: 0,
+            highScore: 0,
+            gameOver: false,
+            playerX: window.innerWidth / 2,
+            hearts: [],
+            lasers: [],
+            lastHeartTime: 0,
+            heartInterval: 1000, // milliseconds
+            paragX: window.innerWidth / 2,
+            paragDirection: 1,
+            paragSpeed: 3,
+            laserActive: false
+        };
+
+        // DOM elements
+        const gameContainer = document.getElementById('game-container');
+        const playerEl = document.getElementById('player');
+        const paragEl = document.getElementById('parag');
+        const scoreDisplay = document.getElementById('score-display');
+        const highScoreDisplay = document.getElementById('high-score-display');
+        const gameOverScreen = document.getElementById('game-over');
+        const finalScore = document.getElementById('final-score');
+        const restartBtn = document.getElementById('restart-btn');
+        const pauseBtn = document.getElementById('pause-btn');
+        const pauseOverlay = document.getElementById('pause-overlay');
+        
+        // Track pause state
+        let isPaused = false;
+        
+        // Check if high score exists in local storage
+        const savedHighScore = localStorage.getItem('heartDestroyerHighScore');
+        if (savedHighScore) {
+            state.highScore = parseInt(savedHighScore);
+            highScoreDisplay.textContent = `💔 Record: ${state.highScore}`;
+        }
+        
+        // Set background images
+        playerEl.style.backgroundImage = "url('P.png')";
+        paragEl.style.backgroundImage = "url('parag.png')";
+
+        // Calculate heart dimensions
+        const heartSize = 40;
+        
+        // Initialize game
+        function initGame() {
+            // Start the music automatically without fallback button
+            bgMusic.play().catch(error => {
+                console.log("Audio couldn't autoplay: ", error);
+                // Try again on first user interaction
+                document.addEventListener('click', function playAudioOnFirstClick() {
+                    bgMusic.play();
+                    document.removeEventListener('click', playAudioOnFirstClick);
+                }, { once: true });
+            });
+            
+            // Reset game state
+            state.score = 0;
+            state.gameOver = false;
+            state.hearts = [];
+            state.lasers = [];
+            state.lastHeartTime = 0;
+            state.heartInterval = 1000;
+            isPaused = false;
+            
+            // Clear existing elements
+            const heartsToRemove = document.querySelectorAll('.heart');
+            heartsToRemove.forEach(heart => heart.remove());
+            
+            const lasersToRemove = document.querySelectorAll('.laser');
+            lasersToRemove.forEach(laser => laser.remove());
+            
+            // Reset score display
+            scoreDisplay.textContent = "💔 0";
+            
+            // Hide game over screen and pause overlay
+            gameOverScreen.style.display = "none";
+            pauseOverlay.style.display = "none";
+            playerEl.classList.remove('dancing');
+            paragEl.classList.remove('dancing');
+
+            // Update pause button text
+            pauseBtn.textContent = "⏸️ Pause";
+
+            // Position player and parag
+            resetPositions();
+
+            // Start the game loop
+            requestAnimationFrame(gameLoop);
+        }
+
+        function resetPositions() {
+            state.playerX = window.innerWidth / 2;
+            state.paragX = window.innerWidth / 2;
+            
+            playerEl.style.left = `${state.playerX}px`;
+            playerEl.style.transform = 'translateX(-50%)';
+            
+            paragEl.style.left = `${state.paragX}px`;
+            paragEl.style.transform = 'translateX(-50%)';
+            paragEl.style.top = '10px';
+        }
+
+        // Game loop
+        function gameLoop(timestamp) {
+            if (state.gameOver || isPaused) return;
+
+            // Move parag
+            moveParagWithinBounds();
+
+            // Create new hearts at intervals
+            if (timestamp - state.lastHeartTime > state.heartInterval) {
+                // Get the parag position for heart creation
+                const paragRect = paragEl.getBoundingClientRect();
+                
+                // Create hearts from either side of parag
+                createHeart(paragRect.left, true); // Left side
+                createHeart(paragRect.right, false); // Right side
+                
+                state.lastHeartTime = timestamp;
+                // Make the game progressively harder
+                state.heartInterval = Math.max(400, state.heartInterval - 5);
+            }
+
+            // Update positions of hearts and lasers
+            updateHearts();
+            updateLasers();
+
+            // Check for collisions
+            checkCollisions();
+
+            // Schedule the next frame
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Move parag within bounds
+        function moveParagWithinBounds() {
+            state.paragX += state.paragDirection * state.paragSpeed;
+            
+            // Boundary checks with margins
+            const margin = 150; // Keep within central area
+            const minX = margin;
+            const maxX = window.innerWidth - margin;
+            
+            if (state.paragX < minX) {
+                state.paragX = minX;
+                state.paragDirection = 1;
+            } else if (state.paragX > maxX) {
+                state.paragX = maxX;
+                state.paragDirection = -1;
+            }
+            
+            paragEl.style.left = `${state.paragX}px`;
+        }
+
+        // Create a new heart with varied angles
+        function createHeart(xPos, isLeftHand) {
+            const heart = document.createElement('div');
+            heart.className = 'heart';
+            heart.style.backgroundImage = "url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"%23ff0000\"><path d=\"M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z\"/></svg>')";
+            
+            // Position based on Parag
+            const paragRect = paragEl.getBoundingClientRect();
+            
+            heart.style.left = `${xPos}px`;
+            heart.style.top = `${paragRect.bottom}px`;
+            
+            // Randomize angle (varied speeds)
+            const angleVariation = Math.random();
+            
+            // Set direction based on which side with varied angles
+            if (isLeftHand) {
+                // From left side of Parag - moving right and down
+                if (angleVariation < 0.2) {
+                    // Almost straight down
+                    heart.speedX = 0.5 + Math.random() * 1;
+                    heart.speedY = 4 + Math.random() * 2;
+                } else if (angleVariation < 0.5) {
+                    // Moderate angle
+                    heart.speedX = 2 + Math.random() * 1;
+                    heart.speedY = 3 + Math.random() * 1.5;
+                } else {
+                    // Wider angle
+                    heart.speedX = 3 + Math.random() * 2;
+                    heart.speedY = 2 + Math.random() * 1;
+                }
+            } else {
+                // From right side of Parag - moving left and down
+                if (angleVariation < 0.2) {
+                    // Almost straight down
+                    heart.speedX = -0.5 - Math.random() * 1;
+                    heart.speedY = 4 + Math.random() * 2;
+                } else if (angleVariation < 0.5) {
+                    // Moderate angle
+                    heart.speedX = -2 - Math.random() * 1;
+                    heart.speedY = 3 + Math.random() * 1.5;
+                } else {
+                    // Wider angle
+                    heart.speedX = -3 - Math.random() * 2;
+                    heart.speedY = 2 + Math.random() * 1;
+                }
+            }
+            
+            heart.rotationSpeed = (Math.random() - 0.5) * 20; // Random rotation speed
+            heart.rotation = 0;
+
+            gameContainer.appendChild(heart);
+            state.hearts.push(heart);
+        }
+
+        // Fire a laser from the top center of player (P.png)
+        function fireLaser() {
+            if (state.gameOver || state.laserActive || isPaused) return;
+            
+            state.laserActive = true;
+            
+            // Calculate exact top center of player for laser origin
+            const playerRect = playerEl.getBoundingClientRect();
+            const laserOriginX = playerRect.left + (playerRect.width / 2);
+            const laserOriginY = playerRect.top; // Top of the player image
+            
+            // Don't show the red line visual effect
+            // Just create the actual laser projectile
+            createLaserProjectile(laserOriginX, laserOriginY);
+            
+            // Release the laser lock after a short delay
+            setTimeout(() => {
+                state.laserActive = false;
+            }, 300);
+        }
+        
+        function createLaserProjectile(x, y) {
+            const laser = document.createElement('div');
+            laser.className = 'laser';
+            laser.style.left = `${x - 2.5}px`; // Center the 5px wide laser
+            laser.style.top = `${y}px`;
+            
+            gameContainer.appendChild(laser);
+            state.lasers.push(laser);
+        }
+
+        // Update positions of hearts with improved wall reflection
+        function updateHearts() {
+            for (let i = 0; i < state.hearts.length; i++) {
+                const heart = state.hearts[i];
+                const currentTop = parseFloat(heart.style.top);
+                const currentLeft = parseFloat(heart.style.left);
+                
+                // Update position
+                heart.style.top = `${currentTop + heart.speedY}px`;
+                heart.style.left = `${currentLeft + heart.speedX}px`;
+                
+                // Update rotation
+                heart.rotation += heart.rotationSpeed;
+                heart.style.transform = `rotate(${heart.rotation}deg)`;
+                
+                // Check if heart has reached the bottom
+                if (currentTop > window.innerHeight - heartSize) {
+                    endGame();
+                    break;
+                }
+                
+                // Check if heart hits the walls - improved reflection physics
+                if (currentLeft < 0) {
+                    // Left wall hit
+                    heart.style.left = '0px';
+                    heart.speedX = Math.abs(heart.speedX) * (0.8 + Math.random() * 0.4); // Random bounce variation
+                    // Slightly adjust Y speed for more realistic physics
+                    heart.speedY = heart.speedY * (0.95 + Math.random() * 0.1);
+                    // Adjust rotation speed
+                    heart.rotationSpeed = Math.abs(heart.rotationSpeed) * (Math.random() > 0.5 ? 1 : -1);
+                } 
+                else if (currentLeft > window.innerWidth - heartSize) {
+                    // Right wall hit
+                    heart.style.left = `${window.innerWidth - heartSize}px`;
+                    heart.speedX = -Math.abs(heart.speedX) * (0.8 + Math.random() * 0.4); // Random bounce variation
+                    // Slightly adjust Y speed for more realistic physics
+                    heart.speedY = heart.speedY * (0.95 + Math.random() * 0.1);
+                    // Adjust rotation speed
+                    heart.rotationSpeed = -Math.abs(heart.rotationSpeed) * (Math.random() > 0.5 ? 1 : -1);
+                }
+            }
+        }
+
+        // Update positions of lasers
+        function updateLasers() {
+            for (let i = state.lasers.length - 1; i >= 0; i--) {
+                const laser = state.lasers[i];
+                const currentTop = parseFloat(laser.style.top);
+                laser.style.top = `${currentTop - 10}px`; // Move upward
+                
+                // Remove lasers that have gone off screen
+                if (currentTop < 0) {
+                    laser.remove();
+                    state.lasers.splice(i, 1);
+                }
+            }
+        }
+
+        // Check for collisions between lasers and hearts
+        function checkCollisions() {
+            for (let i = state.lasers.length - 1; i >= 0; i--) {
+                const laser = state.lasers[i];
+                const laserRect = laser.getBoundingClientRect();
+                
+                for (let j = state.hearts.length - 1; j >= 0; j--) {
+                    const heart = state.hearts[j];
+                    const heartRect = heart.getBoundingClientRect();
+                    
+                    // Check for collision
+                    if (isColliding(laserRect, heartRect)) {
+                        // Remove both heart and laser
+                        heart.remove();
+                        laser.remove();
+                        state.hearts.splice(j, 1);
+                        state.lasers.splice(i, 1);
+                        
+                        // Increase score by 1 (not 10)
+                        state.score += 1;
+                        scoreDisplay.textContent = `💔 ${state.score}`;
+                        
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Collision detection helper
+        function isColliding(rect1, rect2) {
+            return !(
+                rect1.right < rect2.left ||
+                rect1.left > rect2.right ||
+                rect1.bottom < rect2.top ||
+                rect1.top > rect2.bottom
+            );
+        }
+
+        // End the game
+        function endGame() {
+            state.gameOver = true;
+            finalScore.textContent = `💔 ${state.score}`;
+            gameOverScreen.style.display = "block";
+            
+            // Update high score if needed
+            if (state.score > state.highScore) {
+                state.highScore = state.score;
+                highScoreDisplay.textContent = `💔 Record: ${state.highScore}`;
+                // Save to local storage
+                localStorage.setItem('heartDestroyerHighScore', state.highScore.toString());
+            }
+            
+            // Keep music playing
+        }
+        
+        // Toggle pause state
+        function togglePause() {
+            isPaused = !isPaused;
+            
+            if (isPaused) {
+                pauseOverlay.style.display = "flex";
+                pauseBtn.textContent = "▶️ Resume";
+                
+                // Make both P and Parag dance side by side when paused
+                playerEl.classList.add('dancing');
+                paragEl.classList.add('dancing');
+                
+                // Store original position data
+                const paragOriginalTop = paragEl.style.top;
+                const paragOriginalLeft = paragEl.style.left;
+                const paragOriginalTransform = paragEl.style.transform;
+                
+                // Store original position to restore later
+                paragEl.dataset.originalTop = paragOriginalTop;
+                paragEl.dataset.originalLeft = paragOriginalLeft;
+                paragEl.dataset.originalTransform = paragOriginalTransform;
+                
+                // Position next to player
+                const playerRect = playerEl.getBoundingClientRect();
+                paragEl.style.top = (window.innerHeight - playerRect.height - 30) + 'px';
+                paragEl.style.left = (playerRect.left - 120) + 'px';
+                paragEl.style.transform = 'none';
+            } else {
+                pauseOverlay.style.display = "none";
+                pauseBtn.textContent = "⏸️ Pause";
+                
+                // Stop dancing
+                playerEl.classList.remove('dancing');
+                paragEl.classList.remove('dancing');
+                
+                // Restore Parag to original position
+                paragEl.style.top = paragEl.dataset.originalTop || '10px';
+                paragEl.style.left = paragEl.dataset.originalLeft || '50%';
+                paragEl.style.transform = paragEl.dataset.originalTransform || 'translateX(-50%)';
+                
+                // Resume game loop
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        // Event listeners for player movement
+        document.addEventListener('mousemove', (e) => {
+            if (state.gameOver || isPaused) return;
+            state.playerX = e.clientX;
+            playerEl.style.left = `${state.playerX}px`;
+        });
+
+        document.addEventListener('touchmove', (e) => {
+            if (state.gameOver || isPaused) return;
+            e.preventDefault();
+            state.playerX = e.touches[0].clientX;
+            playerEl.style.left = `${state.playerX}px`;
+        });
+
+        // Event listeners for firing lasers
+        document.addEventListener('click', (e) => {
+            // Ignore clicks on buttons
+            if (e.target.tagName === 'BUTTON') return;
+            
+            // Handle pause button click
+            if (e.target === pauseBtn) {
+                togglePause();
+                return;
+            }
+            
+            if (state.gameOver || isPaused) return;
+            fireLaser();
+        });
+
+        document.addEventListener('touchend', (e) => {
+            // Ignore touches on buttons
+            if (e.target.tagName === 'BUTTON') return;
+            if (state.gameOver || isPaused) return;
+            e.preventDefault();
+            fireLaser();
+        });
+
+        // Event listener for restarting the game
+        restartBtn.addEventListener('click', initGame);
+
+        // Event listener for pause button - Fixed
+        pauseBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            togglePause();
+        });
+
+        // Event listener for screen resize
+        window.addEventListener('resize', () => {
+            resetPositions();
+        });
+
+        // Allow keyboard control
+        document.addEventListener('keydown', (e) => {
+            // Toggle pause with Escape key
+            if (e.key === 'Escape') {
+                togglePause();
+                return;
+            }
+            
+            if (state.gameOver || isPaused) return;
+            
+            // Move left
+            if (e.key === 'ArrowLeft') {
+                state.playerX = Math.max(playerEl.offsetWidth / 2, state.playerX - 20);
+                playerEl.style.left = `${state.playerX}px`;
+            }
+            // Move right
+            else if (e.key === 'ArrowRight') {
+                state.playerX = Math.min(window.innerWidth - playerEl.offsetWidth / 2, state.playerX + 20);
+                playerEl.style.left = `${state.playerX}px`;
+            }
+            // Fire laser with spacebar
+            else if (e.key === ' ' || e.key === 'Spacebar') {
+                fireLaser();
+                e.preventDefault();
+            }
+        });
+
+        // Start the game when everything is loaded
+        window.addEventListener('load', initGame);
+    </script>
+</body>
+</html>
